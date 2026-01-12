@@ -1021,6 +1021,42 @@ mod tests {
     }
 
     #[test]
+    fn test_navigate_with_headers() {
+        let mut flags = default_flags();
+        flags.headers = Some(r#"{"Authorization": "Bearer token"}"#.to_string());
+        let cmd = parse_command(&args("open api.example.com"), &flags).unwrap();
+        assert_eq!(cmd["action"], "navigate");
+        assert_eq!(cmd["url"], "https://api.example.com");
+        assert_eq!(cmd["headers"]["Authorization"], "Bearer token");
+    }
+
+    #[test]
+    fn test_navigate_with_multiple_headers() {
+        let mut flags = default_flags();
+        flags.headers = Some(r#"{"Authorization": "Bearer token", "X-Custom": "value"}"#.to_string());
+        let cmd = parse_command(&args("open api.example.com"), &flags).unwrap();
+        assert_eq!(cmd["headers"]["Authorization"], "Bearer token");
+        assert_eq!(cmd["headers"]["X-Custom"], "value");
+    }
+
+    #[test]
+    fn test_navigate_without_headers_flag() {
+        let cmd = parse_command(&args("open example.com"), &default_flags()).unwrap();
+        assert_eq!(cmd["action"], "navigate");
+        // headers should not be present when flag is not set
+        assert!(cmd.get("headers").is_none());
+    }
+
+    #[test]
+    fn test_navigate_with_invalid_headers_json() {
+        let mut flags = default_flags();
+        flags.headers = Some("not valid json".to_string());
+        let cmd = parse_command(&args("open api.example.com"), &flags).unwrap();
+        // Invalid JSON should result in no headers field (graceful handling)
+        assert!(cmd.get("headers").is_none());
+    }
+
+    #[test]
     fn test_back() {
         let cmd = parse_command(&args("back"), &default_flags()).unwrap();
         assert_eq!(cmd["action"], "back");

@@ -71,3 +71,80 @@ pub fn clean_args(args: &[String]) -> Vec<String> {
     }
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(s: &str) -> Vec<String> {
+        s.split_whitespace().map(String::from).collect()
+    }
+
+    #[test]
+    fn test_parse_headers_flag() {
+        let flags = parse_flags(&args(r#"open example.com --headers {"Auth":"token"}"#));
+        assert_eq!(flags.headers, Some(r#"{"Auth":"token"}"#.to_string()));
+    }
+
+    #[test]
+    fn test_parse_headers_flag_with_spaces() {
+        // Headers JSON is passed as a single quoted argument in shell
+        let input: Vec<String> = vec![
+            "open".to_string(),
+            "example.com".to_string(),
+            "--headers".to_string(),
+            r#"{"Authorization": "Bearer token"}"#.to_string(),
+        ];
+        let flags = parse_flags(&input);
+        assert_eq!(flags.headers, Some(r#"{"Authorization": "Bearer token"}"#.to_string()));
+    }
+
+    #[test]
+    fn test_parse_no_headers_flag() {
+        let flags = parse_flags(&args("open example.com"));
+        assert!(flags.headers.is_none());
+    }
+
+    #[test]
+    fn test_clean_args_removes_headers() {
+        let input: Vec<String> = vec![
+            "open".to_string(),
+            "example.com".to_string(),
+            "--headers".to_string(),
+            r#"{"Auth":"token"}"#.to_string(),
+        ];
+        let clean = clean_args(&input);
+        assert_eq!(clean, vec!["open", "example.com"]);
+    }
+
+    #[test]
+    fn test_clean_args_removes_headers_at_start() {
+        let input: Vec<String> = vec![
+            "--headers".to_string(),
+            r#"{"Auth":"token"}"#.to_string(),
+            "open".to_string(),
+            "example.com".to_string(),
+        ];
+        let clean = clean_args(&input);
+        assert_eq!(clean, vec!["open", "example.com"]);
+    }
+
+    #[test]
+    fn test_headers_with_other_flags() {
+        let input: Vec<String> = vec![
+            "open".to_string(),
+            "example.com".to_string(),
+            "--headers".to_string(),
+            r#"{"Auth":"token"}"#.to_string(),
+            "--json".to_string(),
+            "--headed".to_string(),
+        ];
+        let flags = parse_flags(&input);
+        assert_eq!(flags.headers, Some(r#"{"Auth":"token"}"#.to_string()));
+        assert!(flags.json);
+        assert!(flags.headed);
+        
+        let clean = clean_args(&input);
+        assert_eq!(clean, vec!["open", "example.com"]);
+    }
+}
