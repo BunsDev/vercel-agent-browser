@@ -54,28 +54,15 @@ agent-browser close`} />
         <ol>
           <li><strong>Rust CLI</strong> - Parses commands, communicates with daemon</li>
           <li><strong>Node.js Daemon</strong> - Manages Playwright browser instance</li>
-          <li><strong>Fallback</strong> - Uses Node.js directly if native binary unavailable</li>
         </ol>
         <p>
           Daemon starts automatically and persists between commands.
         </p>
 
         <h2>Platforms</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Platform</th>
-              <th>Binary</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>macOS ARM64</td><td>Native Rust</td></tr>
-            <tr><td>macOS x64</td><td>Native Rust</td></tr>
-            <tr><td>Linux ARM64</td><td>Native Rust</td></tr>
-            <tr><td>Linux x64</td><td>Native Rust</td></tr>
-            <tr><td>Windows x64</td><td>Native Rust</td></tr>
-          </tbody>
-        </table>
+        <p>
+          Native Rust binaries for macOS (ARM64, x64), Linux (ARM64, x64), and Windows (x64).
+        </p>
       </div>
     </div>
   );
