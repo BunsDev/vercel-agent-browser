@@ -354,15 +354,25 @@ pub fn parse_command(args: &[String], flags: &Flags) -> Result<Value, ParseError
 
         // === Connect (CDP) ===
         "connect" => {
-            let port_str = rest.get(0).ok_or_else(|| ParseError::MissingArguments {
+            let endpoint = rest.first().ok_or_else(|| ParseError::MissingArguments {
                 context: "connect".to_string(),
-                usage: "connect <port>",
+                usage: "connect <port|url>",
             })?;
-            let port: u16 = port_str.parse().map_err(|_| ParseError::MissingArguments {
-                context: format!("connect: invalid port '{}'", port_str),
-                usage: "connect <port>",
-            })?;
-            Ok(json!({ "id": id, "action": "launch", "cdpPort": port }))
+            // Check if it's a URL (ws://, wss://, http://, https://)
+            if endpoint.starts_with("ws://")
+                || endpoint.starts_with("wss://")
+                || endpoint.starts_with("http://")
+                || endpoint.starts_with("https://")
+            {
+                Ok(json!({ "id": id, "action": "launch", "cdpUrl": endpoint }))
+            } else {
+                // It's a port number
+                let port: u16 = endpoint.parse().map_err(|_| ParseError::MissingArguments {
+                    context: format!("connect: invalid port or URL '{}'", endpoint),
+                    usage: "connect <port|url>",
+                })?;
+                Ok(json!({ "id": id, "action": "launch", "cdpPort": port }))
+            }
         }
 
         // === Get ===
@@ -1711,5 +1721,67 @@ mod tests {
         assert_eq!(cmd["action"], "nth");
         assert_eq!(cmd["index"], 2);
         assert!(cmd.get("value").is_none());
+    }
+
+    // === Connect (CDP) tests ===
+
+    #[test]
+    fn test_connect_with_port() {
+        let cmd = parse_command(&args("connect 9222"), &default_flags()).unwrap();
+        assert_eq!(cmd["action"], "launch");
+        assert_eq!(cmd["cdpPort"], 9222);
+        assert!(cmd.get("cdpUrl").is_none());
+    }
+
+    #[test]
+    fn test_connect_with_ws_url() {
+        let input: Vec<String> = vec![
+            "connect".to_string(),
+            "ws://localhost:9222/devtools/browser/abc123".to_string(),
+        ];
+        let cmd = parse_command(&input, &default_flags()).unwrap();
+        assert_eq!(cmd["action"], "launch");
+        assert_eq!(cmd["cdpUrl"], "ws://localhost:9222/devtools/browser/abc123");
+        assert!(cmd.get("cdpPort").is_none());
+    }
+
+    #[test]
+    fn test_connect_with_wss_url() {
+        let input: Vec<String> = vec![
+            "connect".to_string(),
+            "wss://remote-browser.example.com/cdp?token=xyz".to_string(),
+        ];
+        let cmd = parse_command(&input, &default_flags()).unwrap();
+        assert_eq!(cmd["action"], "launch");
+        assert_eq!(cmd["cdpUrl"], "wss://remote-browser.example.com/cdp?token=xyz");
+        assert!(cmd.get("cdpPort").is_none());
+    }
+
+    #[test]
+    fn test_connect_with_http_url() {
+        let input: Vec<String> = vec![
+            "connect".to_string(),
+            "http://localhost:9222".to_string(),
+        ];
+        let cmd = parse_command(&input, &default_flags()).unwrap();
+        assert_eq!(cmd["action"], "launch");
+        assert_eq!(cmd["cdpUrl"], "http://localhost:9222");
+        assert!(cmd.get("cdpPort").is_none());
+    }
+
+    #[test]
+    fn test_connect_missing_argument() {
+        let result = parse_command(&args("connect"), &default_flags());
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ParseError::MissingArguments { .. }));
+    }
+
+    #[test]
+    fn test_connect_invalid_port() {
+        let result = parse_command(&args("connect notanumber"), &default_flags());
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ParseError::MissingArguments { .. }));
+        assert!(err.format().contains("invalid port or URL"));
     }
 }
